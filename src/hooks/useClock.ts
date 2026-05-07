@@ -1,0 +1,35 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+export function useClock(intervalMs = 33): Date {
+  const [now, setNow] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+
+  return now;
+}
+
+export function formatClock(date: Date): string {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
+  const cs = String(Math.floor(date.getMilliseconds() / 10)).padStart(2, "0");
+  return `${h}:${m}:${s}:${cs}`;
+}
+
+export function localTime(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("ja-JP", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+  } catch {
+    return "--:--";
+  }
+}
