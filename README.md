@@ -105,4 +105,11 @@ src/
 
 ## 📜 ライセンス
 
-MIT
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
+このプロジェクトは **MIT ライセンス** のもとで公開しています。  
+自由に使用・改変・再配布していただいて構いませんが、使用・参考にした際はできる限り作者へのクレジット表記をお願いします。
+
+```
+© 2025 masafykun (https://github.com/masafykun)
+```
