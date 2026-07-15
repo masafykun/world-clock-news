@@ -8,7 +8,11 @@ import { useEffect, useMemo, useRef } from "react";
 import landDotsFlat from "@/lib/landDots.json";
 
 const DOT_COLOR = "#EC4899";
-const ROTATION_MS = 60_000; // 360°/60秒でゆっくり自転
+// 裏半球は淡いラベンダーピンク。表のマゼンタの下に大陸が透けて見える
+// 奥行き表現（参考: nwtgck/react-summer-wars-world-clock, ISC）
+const BACK_DOT_COLOR = "#EDE9F1";
+const ROTATION_MS = 180_000; // 360°/180秒。映画のゆったりした自転に合わせる
+const TILT_RAD = 23.4 * (Math.PI / 180); // 実際の地軸傾斜角
 const DEG = Math.PI / 180;
 
 interface LandDot {
@@ -81,20 +85,43 @@ export function DotGlobe({ className }: DotGlobeProps) {
       const cosT = Math.cos(theta);
       const baseR = radius * 0.011;
 
-      ctx.fillStyle = DOT_COLOR;
+      // 地軸の傾きは地球儀の中心を軸に Canvas ごと回す（時計や帯は対象外）
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(TILT_RAD);
+
+      // 裏半球を淡色で先に描き、その上に表半球を重ねて奥行きを出す
+      ctx.fillStyle = BACK_DOT_COLOR;
       for (const d of dots) {
         const sinRel = d.sinLon * cosT + d.cosLon * sinT;
         const cosRel = d.cosLon * cosT - d.sinLon * sinT;
         const depth = d.cosLat * cosRel; // 視線方向成分。負なら裏半球
+        if (depth > 0) continue;
+        const x = radius * d.cosLat * sinRel;
+        const y = -radius * d.sinLat;
+        // 裏側は表より小径にして主張を抑える
+        const r = baseR * (0.35 + 0.3 * -depth);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = DOT_COLOR;
+      for (const d of dots) {
+        const sinRel = d.sinLon * cosT + d.cosLon * sinT;
+        const cosRel = d.cosLon * cosT - d.sinLon * sinT;
+        const depth = d.cosLat * cosRel;
         if (depth <= 0) continue;
-        const x = cx + radius * d.cosLat * sinRel;
-        const y = cy - radius * d.sinLat;
+        const x = radius * d.cosLat * sinRel;
+        const y = -radius * d.sinLat;
         // 深度でドット径を微変調して立体感を出す
         const r = baseR * (0.55 + 0.45 * depth);
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      ctx.restore();
     };
 
     resize();
