@@ -8,6 +8,12 @@
     scrollbar-gutter: stable;
   }
 
+  body {
+    /* OZ風ライトテーマ: ごく淡いウォームホワイト地に黒文字 */
+    background-color: #fefdfb;
+    color: #0a0a0a;
+  }
+
   /* prefers-reduced-motion 対応: framer-motion が別途対応するが念のため */
   @media (prefers-reduced-motion: reduce) {
     *,

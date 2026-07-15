@@ -10,6 +10,13 @@ const config: Config = {
     extend: {
       fontFamily: {
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        clock: [
+          "Helvetica Neue",
+          "Helvetica",
+          "DIN Alternate",
+          "Arial",
+          "sans-serif",
+        ],
       },
     },
   },

@@ -9,10 +9,11 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useClock, formatClock } from "@/hooks/useClock";
+import { useClock } from "@/hooks/useClock";
 import { useNews } from "@/hooks/useNews";
 import { buildBubbleLayout, rotateNewsByHour, type BubbleItem } from "@/lib/bubbleLayout";
-import { EarthIcon } from "./EarthIcon";
+import { DotGlobe } from "./DotGlobe";
+import { DigitalClock } from "./DigitalClock";
 import { InlineIcon } from "./InlineIcon";
 import { NewsBubble } from "./NewsBubble";
 import { DetailPanel } from "./DetailPanel";
@@ -46,7 +47,7 @@ function reducer(state: State, action: Action): State {
 }
 
 export default function WorldClockNewsBubbles() {
-  const now = useClock();
+  const now = useClock(1000);
   const { items, loading, error, source } = useNews();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
@@ -102,7 +103,7 @@ export default function WorldClockNewsBubbles() {
 
   return (
     <div
-      className="relative min-h-screen cursor-pointer select-none overflow-hidden bg-gradient-to-br from-white via-slate-50 to-pink-50"
+      className="relative min-h-screen cursor-pointer select-none overflow-hidden bg-[#fefdfb]"
       onClick={handleBackgroundClick}
       aria-label={
         newsVisible
@@ -110,24 +111,17 @@ export default function WorldClockNewsBubbles() {
           : "クリックすると世界のニュースが表示されます"
       }
     >
-      {/* 背景ブラー装飾 */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-50">
-        <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-pink-100 blur-3xl" />
-        <div className="absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-cyan-100 blur-3xl" />
-        <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pink-50 blur-3xl" />
-      </div>
-
       {/* ヘッダー */}
       <header className="pointer-events-none relative z-50 flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-pink-500 text-white shadow-lg shadow-pink-200 sm:h-11 sm:w-11">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-pink-500 text-white sm:h-11 sm:w-11">
             <InlineIcon name="globe" className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">
+            <h1 className="text-lg font-black tracking-tight text-black sm:text-xl">
               World Clock News
             </h1>
-            <p className="text-xs text-slate-400 sm:text-sm">
+            <p className="text-xs text-neutral-400 sm:text-sm">
               {newsVisible
                 ? "バブルをクリックすると詳細を表示"
                 : "クリックして世界のニュースを見る"}
@@ -138,7 +132,7 @@ export default function WorldClockNewsBubbles() {
         {/* ステータスバッジ */}
         <div className="pointer-events-auto flex items-center gap-2">
           {loading && (
-            <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500 sm:inline-flex">
+            <span className="hidden rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500 sm:inline-flex">
               取得中…
             </span>
           )}
@@ -151,12 +145,12 @@ export default function WorldClockNewsBubbles() {
             </span>
           )}
           {source === "api" && (
-            <span className="hidden rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 sm:inline-flex">
+            <span className="hidden rounded-full bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-600 sm:inline-flex">
               ● ライブ
             </span>
           )}
           {newsVisible && (
-            <span className="hidden rounded-full bg-white/80 px-4 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200 backdrop-blur sm:inline-flex">
+            <span className="hidden rounded-full bg-white/80 px-4 py-1.5 text-xs font-bold text-neutral-600 ring-1 ring-neutral-200 backdrop-blur sm:inline-flex">
               {String(activeHour).padStart(2, "0")}:00 のニュース
             </span>
           )}
@@ -168,6 +162,17 @@ export default function WorldClockNewsBubbles() {
         ref={containerRef}
         className="relative z-10 mx-auto h-[calc(100svh-72px)] max-h-[800px] min-h-[500px] w-full"
       >
+        {/* 中央: 回転する地球儀（マゼンタのハーフトーンドット） */}
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <motion.div
+            animate={{ scale: newsVisible ? 0.8 : 1 }}
+            transition={{ duration: 0.45, type: "spring", stiffness: 90, damping: 16 }}
+            className="h-[min(88vw,88svh,620px)] w-[min(88vw,88svh,620px)]"
+          >
+            <DotGlobe className="h-full w-full" />
+          </motion.div>
+        </div>
+
         {/* バブル接続ライン（SVG） */}
         <AnimatePresence>
           {newsVisible && (
@@ -187,7 +192,7 @@ export default function WorldClockNewsBubbles() {
                   y1={centerY}
                   x2={item.x}
                   y2={item.y}
-                  stroke="rgba(148,163,184,0.30)"
+                  stroke="rgba(236,72,153,0.22)"
                   strokeWidth="1"
                   initial={prefersReducedMotion ? { opacity: 1 } : { pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
@@ -220,60 +225,29 @@ export default function WorldClockNewsBubbles() {
           </AnimatePresence>
         </div>
 
-        {/* 中央: 地球儀と時計 */}
-        <section className="pointer-events-none absolute left-1/2 top-1/2 z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-          {/* 地球儀 */}
-          <motion.div
-            animate={{
-              rotate: 360,
-              scale: newsVisible ? 0.78 : 1,
-            }}
-            transition={{
-              rotate: {
-                duration: prefersReducedMotion ? 0 : 90,
-                repeat: Infinity,
-                ease: "linear",
-              },
-              scale: { duration: 0.45, type: "spring", stiffness: 90, damping: 16 },
-            }}
-            className="opacity-95"
-            aria-label="回転する地球儀"
-          >
-            <EarthIcon expanded={newsVisible} />
-          </motion.div>
+        {/* 時計帯: 画面幅いっぱいの半透明の白い横帯 + 黒の太字デジタル時計 */}
+        <div className="pointer-events-none absolute left-0 right-0 top-[38%] z-40 -translate-y-1/2">
+          <div className="flex w-full justify-center bg-white/70 py-3 backdrop-blur-[2px] sm:py-4">
+            <DigitalClock className="text-[13vw] sm:text-7xl md:text-8xl lg:text-9xl" />
+          </div>
+        </div>
 
-          {/* 時計 */}
-          <motion.div
-            animate={{ y: newsVisible ? -130 : -160, scale: newsVisible ? 0.85 : 1 }}
-            transition={{ duration: 0.45, type: "spring", stiffness: 90, damping: 16 }}
-            className="rounded-2xl bg-white/80 px-7 py-3 shadow-xl ring-1 ring-white/80 backdrop-blur-md sm:px-10 sm:py-4"
-          >
-            <time
-              className="font-mono text-5xl font-black tabular-nums tracking-tight text-slate-950 sm:text-7xl md:text-8xl"
-              dateTime={now.toISOString()}
-              aria-label={`現在時刻 ${formatClock(now)}`}
+        {/* クリック促進（初期状態のみ） */}
+        <AnimatePresence>
+          {!newsVisible && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ delay: 0.6 }}
+              className="pointer-events-none absolute bottom-8 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-pink-500 px-5 py-2 text-sm font-black text-white"
+              aria-hidden="true"
             >
-              {formatClock(now)}
-            </time>
-          </motion.div>
-
-          {/* クリック促進ボタン（初期状態のみ） */}
-          <AnimatePresence>
-            {!newsVisible && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ delay: 0.6 }}
-                className="pointer-events-none mt-6 flex items-center gap-2 rounded-full bg-pink-500 px-5 py-2 text-sm font-black text-white shadow-lg shadow-pink-200"
-                aria-hidden="true"
-              >
-                <InlineIcon name="spark" className="h-4 w-4" />
-                クリックして世界のニュースを見る
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
+              <InlineIcon name="spark" className="h-4 w-4" />
+              クリックして世界のニュースを見る
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 詳細パネル */}
         <DetailPanel
