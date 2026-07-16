@@ -9,6 +9,10 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?style=flat-square&logo=tailwindcss)
 ![Framer Motion](https://img.shields.io/badge/Framer_Motion-11-ff69b4?style=flat-square)
 
+![World Clock News — ハーフトーンドット地球儀とセンチ秒デジタル時計](docs/screenshot.png)
+
+**🌐 ライブデモ: [time.1qaz.jp](https://time.1qaz.jp)**
+
 ---
 
 ## ✨ 特徴
