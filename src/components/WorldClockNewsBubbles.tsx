@@ -12,19 +12,25 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useClock } from "@/hooks/useClock";
 import { useNews } from "@/hooks/useNews";
 import { buildBubbleLayout, rotateNewsByHour, type BubbleItem } from "@/lib/bubbleLayout";
+import { pickHighlights } from "@/lib/news/highlights";
 import { DotGlobe } from "./DotGlobe";
 import { DigitalClock } from "./DigitalClock";
-import { InlineIcon } from "./InlineIcon";
 import { NewsBubble } from "./NewsBubble";
 import { DetailPanel } from "./DetailPanel";
+
+/** ニュースを出してから自動で引っ込めるまでの時間 */
+const AUTO_HIDE_MS = 5 * 60 * 1000;
 
 interface State {
   newsVisible: boolean;
   selected: BubbleItem | null;
+  /** ニュースを出した時刻(ms)。自動で引っ込めるまでの計測に使う。 */
+  shownAt: number | null;
 }
 
 type Action =
   | { type: "SHOW_NEWS" }
+  | { type: "HIDE_NEWS" }
   | { type: "SELECT"; item: BubbleItem }
   | { type: "DESELECT" }
   | { type: "BACKGROUND_CLICK" };
@@ -32,15 +38,22 @@ type Action =
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SHOW_NEWS":
-      return { ...state, newsVisible: true };
+      if (state.newsVisible) return state;
+      return { ...state, newsVisible: true, shownAt: Date.now() };
+    case "HIDE_NEWS":
+      if (!state.newsVisible) return state;
+      return { ...state, newsVisible: false, selected: null, shownAt: null };
     case "SELECT":
       return { ...state, selected: action.item };
     case "DESELECT":
       return { ...state, selected: null };
     case "BACKGROUND_CLICK":
-      if (!state.newsVisible) return { ...state, newsVisible: true };
+      if (!state.newsVisible)
+        return { ...state, newsVisible: true, shownAt: Date.now() };
+      // 詳細パネルが開いていれば、まずそれを閉じる
       if (state.selected) return { ...state, selected: null };
-      return state;
+      // 何も開いていない状態で再度クリックされたら時計だけに戻す
+      return { ...state, newsVisible: false, selected: null, shownAt: null };
     default:
       return state;
   }
@@ -51,9 +64,10 @@ export default function WorldClockNewsBubbles() {
   const { items, loading, error, source } = useNews();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
-  const [{ newsVisible, selected }, dispatch] = useReducer(reducer, {
+  const [{ newsVisible, selected, shownAt }, dispatch] = useReducer(reducer, {
     newsVisible: false,
     selected: null,
+    shownAt: null,
   });
 
   // コンテナサイズ（レスポンシブ対応）
@@ -86,9 +100,38 @@ export default function WorldClockNewsBubbles() {
     () => rotateNewsByHour(items, activeHour),
     [items, activeHour]
   );
+  // 毎時00分になったら自動でニュースを出す（クリックと同じ状態）。
+  // 同じ時刻で何度も発火しないよう、処理済みの「時」を覚えておく。
+  const handledHourRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (now.getMinutes() !== 0) return;
+    const stamp = now.getHours();
+    if (handledHourRef.current === stamp) return;
+    handledHourRef.current = stamp;
+    dispatch({ type: "SHOW_NEWS" });
+  }, [now]);
+
+  // 表示から5分経ったら時計だけの状態へ戻す（自動・手動どちらの表示でも同じ）。
+  useEffect(() => {
+    if (!newsVisible || shownAt === null) return;
+    const elapsed = Date.now() - shownAt;
+    const remain = AUTO_HIDE_MS - elapsed;
+    if (remain <= 0) {
+      dispatch({ type: "HIDE_NEWS" });
+      return;
+    }
+    const timer = setTimeout(() => dispatch({ type: "HIDE_NEWS" }), remain);
+    return () => clearTimeout(timer);
+  }, [newsVisible, shownAt]);
+
+  // インパクトのある数件だけに絞る（件数が多いと情報過多になるため）
+  const highlights = useMemo(
+    () => pickHighlights(rotated, activeHour),
+    [rotated, activeHour]
+  );
   const bubbles = useMemo(
-    () => buildBubbleLayout(rotated, width, height),
-    [rotated, width, height]
+    () => buildBubbleLayout(highlights, width, height),
+    [highlights, width, height]
   );
 
   const handleBubbleClick = useCallback(
@@ -111,51 +154,6 @@ export default function WorldClockNewsBubbles() {
           : "クリックすると世界のニュースが表示されます"
       }
     >
-      {/* ヘッダー */}
-      <header className="pointer-events-none relative z-50 flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-pink-500 text-white sm:h-11 sm:w-11">
-            <InlineIcon name="globe" className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <div>
-            <h1 className="text-lg font-black tracking-tight text-black sm:text-xl">
-              World Clock News
-            </h1>
-            <p className="text-xs text-neutral-400 sm:text-sm">
-              {newsVisible
-                ? "バブルをクリックすると詳細を表示"
-                : "クリックして世界のニュースを見る"}
-            </p>
-          </div>
-        </div>
-
-        {/* ステータスバッジ */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          {loading && (
-            <span className="hidden rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500 sm:inline-flex">
-              取得中…
-            </span>
-          )}
-          {error && (
-            <span
-              className="hidden rounded-full bg-red-50 px-3 py-1.5 text-xs font-medium text-red-500 sm:inline-flex"
-              title={error}
-            >
-              ⚠ サンプル表示中
-            </span>
-          )}
-          {source === "api" && (
-            <span className="hidden rounded-full bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-600 sm:inline-flex">
-              ● ライブ
-            </span>
-          )}
-          {newsVisible && (
-            <span className="hidden rounded-full bg-white/80 px-4 py-1.5 text-xs font-bold text-neutral-600 ring-1 ring-neutral-200 backdrop-blur sm:inline-flex">
-              {String(activeHour).padStart(2, "0")}:00 のニュース
-            </span>
-          )}
-        </div>
-      </header>
 
       {/* メインエリア */}
       <main
@@ -167,7 +165,7 @@ export default function WorldClockNewsBubbles() {
           <motion.div
             animate={{ scale: newsVisible ? 0.8 : 1 }}
             transition={{ duration: 0.45, type: "spring", stiffness: 90, damping: 16 }}
-            className="h-[min(88vw,88svh,620px)] w-[min(88vw,88svh,620px)]"
+            className="h-[min(100vw,95svh,900px)] w-[min(100vw,95svh,900px)]"
           >
             <DotGlobe className="h-full w-full" />
           </motion.div>
@@ -226,25 +224,28 @@ export default function WorldClockNewsBubbles() {
         </div>
 
         {/* 時計帯: 画面幅いっぱいの半透明の白い横帯 + 黒の太字デジタル時計 */}
-        <div className="pointer-events-none absolute left-0 right-0 top-[38%] z-40 -translate-y-1/2">
+        <div className="pointer-events-none absolute left-0 right-0 top-1/2 z-40 -translate-y-1/2">
           <div className="flex w-full justify-center bg-white/70 py-3 backdrop-blur-[2px] sm:py-4">
             <DigitalClock className="text-[13vw] sm:text-7xl md:text-8xl lg:text-9xl" />
           </div>
         </div>
 
-        {/* クリック促進（初期状態のみ） */}
+        {/* 読み込み表示：クリックしたのにバブルがまだ無いときだけ出す。
+            初回アクセスや再起動直後はRSS取得＋翻訳で数十秒かかることがあり、
+            何も出ないと「反応していない」ように見えるため。 */}
         <AnimatePresence>
-          {!newsVisible && (
+          {newsVisible && bubbles.length === 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ delay: 0.6 }}
-              className="pointer-events-none absolute bottom-8 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-pink-500 px-5 py-2 text-sm font-black text-white"
-              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="pointer-events-none absolute left-0 right-0 top-[calc(50%+3.5rem)] z-40 flex justify-center sm:top-[calc(50%+5rem)] lg:top-[calc(50%+6.5rem)]"
+              aria-live="polite"
             >
-              <InlineIcon name="spark" className="h-4 w-4" />
-              クリックして世界のニュースを見る
+              <span className="animate-pulse text-xs font-medium tracking-widest text-neutral-400 sm:text-sm">
+                ニュースを読み込み中
+              </span>
             </motion.div>
           )}
         </AnimatePresence>
